@@ -48,7 +48,7 @@ EIGHT = pygame.transform.scale(EIGHT, (CARDWIDTH, CARDHEIGHT))
 CARDS = [ACE, TWO, THREE, FOUR, FIVE, SIX, SEVEN, EIGHT] * 2
 
 
-# Tile class
+""" Tile class """
 class Tile:
     # constructor
     def __init__(self, num, exp, loc):
@@ -79,33 +79,30 @@ class Tile:
     # draw method for tiles
     def drawTile(self, canvas):
         if self.exposed:
-            canvas.blit(CARDS[self.number], (self.location))
+            canvas.blit(self.number, (self.location))
         else:
             canvas.blit(CARD_BACK, (self.location))
 
     # selection method for tiles
     def isSelected(self, pos):
-        horizontalBounds = self.location[0] <= pos[0] <= self.location[0] + CARDWIDTH
+        horizontalBounds = self.location[0] <= pos[0] + 75 <= self.location[0] + CARDWIDTH
         verticalBounds = self.location[1] <= pos[1] <= self.location[1] + CARDHEIGHT
-        print(self.number, self.exposed, self.location)
         return horizontalBounds and verticalBounds
 
 
-# helper function to initialize globals
+""" helper function to initialize globals """
 def new_game():
-    """ Initial condition of new game"""
-    global state, exposed, index_list, turns, myTiles
+    # Initial condition of new game
+    global state, turns, myTiles, exposed
     
     state = 0
     turns = 0
     random.shuffle(CARDS)
-    myTiles = [Tile(CARDS[i], False, [CARDWIDTH * i, CARDHEIGHT]) for i in range(len(CARDS))]
-    exposed = [False] * 16
-    """ list of index of flipped up cards """
-    index_list = []
+    myTiles = [Tile(CARDS[i], False, [(CARDWIDTH * i) + 75, 0]) for i in range(len(CARDS))]
+    exposed = 0
 
 
-# define button
+"""" define button """
 def button(screen, position, text):
     font = pygame.font.SysFont("Arial", 25)
     text_render = font.render(text, True, (255,255,255))
@@ -118,75 +115,63 @@ def button(screen, position, text):
     pygame.draw.rect(screen, (100, 100, 100), (x, y, w, h))
     return screen.blit(text_render, (x, y))
 
-# define event handlers
+""" define event handlers """
 def mouseclick(pos):
     # add game state logic here
-    global state, exposed, index_list, turns
-    
-    """ if game is not complete, run code """
-    if len(index_list) < 16:
-        
-        """ flip cards when clicked """
-        """ only do an action/ event when card is flipped down """
-        if (exposed[pos[0] // 75] == False):
-            
-            """ state 0 -> initial state """
-            if state == 0:
-                state = 1
-                exposed[pos[0] // 75] = True
-                index_list.extend([pos[0] // 75])
-            
-                """ count number of turns """
-                turns += 1
-            
-                """ state 1 -> 1 card face up """
-            elif state == 1:
-                state = 2
-                exposed[pos[0] // 75] = True
-                index_list.extend([pos[0] // 75])
-            
-                """ state 2 -> 2 cards face up """
-            elif state == 2:
-                state = 1
-                exposed[pos[0] // 75] = True
-                index_list.extend([pos[0] // 75])
-            
-                """ count number of turns """
-                turns += 1
-            
-                """ determine if cards are not pairs """
-                if CARDS[index_list[-3]] != CARDS[index_list[-2]]:
-                    """ if cards are not pairs, flip the cards back down """
-                    exposed[index_list[-3]] = False
-                    exposed[index_list[-2]] = False
-                    """ if cards are not pairs, delete from pair list """
-                    index_list.pop(-2)
-                    index_list.pop(-2)
+    global state, turns, turn1Tile, turn2Tile, clickedTile, exposed
 
-        """" Congratulatory Message """
-        if len(index_list) == 16:
-            exposed = [False] * 16
+    # if game has not ended, run code
+    if exposed < 16:
+
+        # check for which tile is clicked
+        for tile in myTiles:
+            if tile.isSelected(pos):
+                clickedTile = tile
+
+        # if clicked tile is already exposed do nothing else expose tile
+        if clickedTile.isExposed():
+            return
+        clickedTile.exposeTile()
+
+        # add state code here:
+        if state == 0:
+            state = 1
+            turns += 1
+            turn1Tile = clickedTile
+            exposed += 1
+        elif state == 1:
+            state = 2
+            turn2Tile = clickedTile
+            exposed += 1
+        elif state == 2:
+            state =1
+            turns += 1
+            exposed += 1
+
+            # if paired tiles don't match hide again
+            if turn1Tile.getNumber() != turn2Tile.getNumber():
+                turn1Tile.hideTile()
+                turn2Tile.hideTile()
+                exposed -= 2
+
+            turn1Tile = clickedTile
+
             
-# cards are logically 75x100 pixels in size
+""" Draw handler"""
+""" cards are logically 75x100 pixels in size """
 def draw(canvas):
 
     canvas.fill((0,0,0))
-
-    # draw cards
-    # for card_index in range(len(CARDS)):
-    #     card_pos = (75 * card_index) + 75
-    #     """" Draw card layout flipped up """
-    #     canvas.blit(CARDS[card_index], (card_pos, 0))
-    #
-    #     """" Draw card layout flipped down """
-    #     if exposed[card_index] == False:
-    #         canvas.blit(CARD_BACK, (card_pos, 0))
 
     for card in myTiles:
         card.drawTile(canvas)
 
     # Messages at game end
-    if len(index_list) == 16:
+    if exposed >= 16:
+        # Hide tiles
+        for tile in myTiles:
+            tile.hideTile()
+
         # Congratulatory message
         font1 = pygame.font.SysFont("Times New Roman", 60)
         label1 = font1.render("CONGRATULATIONS!", True, WHITE)
